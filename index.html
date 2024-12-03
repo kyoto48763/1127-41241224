@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登入與註冊</title>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+        }
+        h2 {
+            color: #333;
+        }
+        .btn {
+            background-color: #4285F4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .btn:hover {
+            background-color: #357ae8;
+        }
+        .btn:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+        #errorMessage {
+            color: red;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>登入或註冊</h2>
+        
+        <!-- Google 登入 -->
+        <button id="googleLoginBtn" class="btn">Google 登入</button>
+
+        <!-- Google 註冊 -->
+        <button id="googleSignupBtn" class="btn">Google 註冊</button>
+
+        <!-- 顯示錯誤訊息 -->
+        <div id="errorMessage" style="display:none;"></div>
+    </div>
+
+    <script>
+        // Firebase 配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyD7Epr_1uQxEmp2bD7ZaF1L5nQUiL2Lrz0",
+            authDomain: "game1-4f90a.firebaseapp.com",
+            databaseURL: "https://game1-4f90a-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "game1-4f90a",
+            storageBucket: "game1-4f90a.firebasestorage.app",
+            messagingSenderId: "975429395685",
+            appId: "1:975429395685:web:4d2fa0442947dd2310600c",
+            measurementId: "G-9V1Z55Y0XY"
+        };
+
+        // 初始化 Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        // 按鈕操作
+        const googleLoginBtn = document.getElementById('googleLoginBtn');
+        const googleSignupBtn = document.getElementById('googleSignupBtn');
+        const errorMessage = document.getElementById('errorMessage');
+
+        // Google 登入
+        googleLoginBtn.addEventListener('click', () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
+                .then(result => {
+                    const user = result.user;
+                    const userRef = database.ref('users/' + user.uid);
+
+                    userRef.once('value', snapshot => {
+                        if (snapshot.exists()) {
+                            // 用戶已經註冊，儲存資料並跳轉到筆記頁面
+                            const data = snapshot.val();
+                            localStorage.setItem('user', JSON.stringify({
+                                uid: user.uid,
+                                displayName: user.displayName,
+                                email: user.email,
+                                photoURL: user.photoURL,
+                                lastLoginTime: data.lastLoginTime
+                            }));
+                            window.location.href = 'note/note.html';
+                        } else {
+                            errorMessage.textContent = '此帳號尚未註冊，請先進行註冊。';
+                            errorMessage.style.display = 'block';
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('登入失敗:', error);
+                    alert('Google 登入失敗：' + getChineseErrorMessage(error.code));
+                });
+        });
+
+        // Google 註冊
+        googleSignupBtn.addEventListener('click', () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
+                .then(result => {
+                    const user = result.user;
+                    const userRef = database.ref('users/' + user.uid);
+
+                    // 檢查用戶是否已經註冊
+                    userRef.once('value', snapshot => {
+                        if (snapshot.exists()) {
+                            errorMessage.textContent = '此帳號已註冊過，請直接登入。';
+                            errorMessage.style.display = 'block';
+                        } else {
+                            // 如果用戶未註冊，創建新用戶
+                            const currentTime = new Date().toLocaleString();
+                            userRef.set({
+                                displayName: user.displayName,
+                                email: user.email,
+                                photoURL: user.photoURL,
+                                lastLoginTime: currentTime
+                            }).then(() => {
+                                localStorage.setItem('user', JSON.stringify({
+                                    uid: user.uid,
+                                    displayName: user.displayName,
+                                    email: user.email,
+                                    photoURL: user.photoURL,
+                                    lastLoginTime: currentTime
+                                }));
+                                window.location.href = 'note/note.html';
+                            });
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('註冊失敗:', error);
+                    alert('Google 註冊失敗：' + getChineseErrorMessage(error.code));
+                });
+        });
+
+        // 將錯誤代碼轉換為中文訊息
+        function getChineseErrorMessage(errorCode) {
+            switch (errorCode) {
+                case 'auth/invalid-email':
+                    return '無效的電子郵件地址。';
+                case 'auth/user-disabled':
+                    return '此帳戶已被禁用。';
+                case 'auth/user-not-found':
+                    return '找不到使用者，請檢查電子郵件地址是否正確。';
+                case 'auth/wrong-password':
+                    return '密碼錯誤，請再試一次。';
+                case 'auth/operation-not-allowed':
+                    return '此操作目前無法使用，請聯絡管理員。';
+                default:
+                    return '發生未知錯誤，請稍後再試。';
+            }
+        }
+    </script>
+</body>
+</html>

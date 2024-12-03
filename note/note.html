@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>筆記系統</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        .header {
+            background-color: #4285F4;
+            color: white;
+            padding: 15px 0;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+        .content {
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .btn {
+            background-color: #4285F4;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            box-sizing: border-box;
+            transition: background-color 0.3s ease;
+        }
+        .btn:hover {
+            background-color: #357ae8;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 10px;
+            width: 70%;
+            max-width: 500px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+        .close {
+            color: #aaa;
+            font-size: 24px;
+            font-weight: bold;
+            position: absolute;
+            top: 10px;
+            right: 15px;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .note-section {
+            margin-top: 20px;
+            text-align: left;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .note-item {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 15px;
+            transition: transform 0.2s;
+        }
+        .note-item:hover {
+            transform: translateY(-5px);
+        }
+        .note-title {
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .note-item button {
+            background-color: #ff9800;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            transition: background-color 0.3s ease;
+        }
+        .note-item button:hover {
+            background-color: #fb8c00;
+        }
+        .note-item .delete-btn {
+            background-color: #f44336;
+        }
+        .note-item .delete-btn:hover {
+            background-color: #d32f2f;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+        input[type="text"]:focus, textarea:focus {
+            border-color: #4285F4;
+            outline: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>歡迎來到筆記系統</h1>
+</div>
+
+<div class="content">
+    <button id="openModalBtn" class="btn">查看個人資訊</button>
+    <button id="logoutBtn" class="btn" style="display:none;">登出</button>
+
+    <div class="note-section">
+        <h2>新增筆記</h2>
+        <input type="text" id="noteTitle" placeholder="請輸入筆記標題">
+        <textarea id="noteContent" placeholder="請輸入筆記內容" rows="5"></textarea><br>
+        <button id="saveNoteBtn" class="btn">儲存筆記</button>
+    </div>
+
+    <div class="note-section">
+        <h2>筆記列表</h2>
+        <div id="noteList"></div>
+    </div>
+</div>
+
+<!-- 個人資訊彈窗 -->
+<div id="myModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>個人資訊</h2>
+        <img id="modalUserPhoto" alt="使用者頭貼" style="width: 100px; height: 100px; border-radius: 50%; margin-bottom: 10px;">
+        <p><strong>姓名:</strong> <span id="modalUserName"></span></p>
+        <p><strong>電子郵件:</strong> <span id="modalUserEmail"></span></p>
+        <p><strong>最後登入時間:</strong> <span id="modalUserLastLoginTime"></span></p>
+    </div>
+</div>
+
+<!-- 編輯筆記彈窗 -->
+<div id="editNoteModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>編輯筆記</h2>
+        <input type="text" id="editNoteTitle" placeholder="請輸入新標題">
+        <textarea id="editNoteContent" placeholder="請輸入新內容" rows="5"></textarea><br>
+        <button id="saveEditedNoteBtn" class="btn">儲存修改</button>
+    </div>
+</div>
+
+<script>
+    window.onload = function() {
+        // 從 localStorage 讀取用戶資料
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (user) {
+            // 顯示用戶個人資訊
+            document.getElementById('modalUserName').textContent = user.displayName;
+            document.getElementById('modalUserEmail').textContent = user.email;
+            document.getElementById('modalUserPhoto').src = user.photoURL || 'https://via.placeholder.com/100';
+            document.getElementById('modalUserLastLoginTime').textContent = user.lastLoginTime; // 顯示最後登入時間
+            
+            // 顯示登出按鈕
+            document.getElementById('logoutBtn').style.display = 'inline';
+        } else {
+            // 如果沒有用戶資料，跳回登入頁面
+            window.location.href = '../index.html';
+        }
+
+        // 彈出視窗
+        const modal = document.getElementById('myModal');
+        const openModalBtn = document.getElementById('openModalBtn');
+        const closeModalBtn = document.getElementsByClassName('close')[0];
+
+        openModalBtn.onclick = function() {
+            modal.style.display = "block";
+        }
+
+        closeModalBtn.onclick = function() {
+            modal.style.display = "none";
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        // 儲存筆記
+        document.getElementById('saveNoteBtn').onclick = function() {
+            const title = document.getElementById('noteTitle').value;
+            const content = document.getElementById('noteContent').value;
+            
+            if (title && content) {
+                const note = {
+                    title: title,
+                    content: content,
+                    date: new Date().toLocaleString()
+                };
+
+                // 儲存筆記到 localStorage
+                let notes = JSON.parse(localStorage.getItem('notes')) || [];
+                notes.push(note);
+                localStorage.setItem('notes', JSON.stringify(notes));
+
+                // 顯示筆記列表
+                displayNotes();
+                
+                // 清空輸入框
+                document.getElementById('noteTitle').value = '';
+                document.getElementById('noteContent').value = '';
+            } else {
+                alert('請填寫筆記標題和內容');
+            }
+        };
+
+        // 顯示筆記列表
+        function displayNotes() {
+            const notes = JSON.parse(localStorage.getItem('notes')) || [];
+            const noteList = document.getElementById('noteList');
+            noteList.innerHTML = '';
+
+            if (notes.length > 0) {
+                notes.forEach((note, index) => {
+                    const noteDiv = document.createElement('div');
+                    noteDiv.classList.add('note-item');
+                    noteDiv.innerHTML = `
+                        <div class="note-title">${note.title}</div>
+                        <p>${note.content}</p>
+                        <small>儲存時間: ${note.date}</small>
+                        <div>
+                            <button class="edit-btn" onclick="openEditModal(${index})">編輯</button>
+                            <button class="delete-btn" onclick="deleteNote(${index})">刪除</button>
+                        </div>
+                    `;
+                    noteList.appendChild(noteDiv);
+                });
+            } else {
+                noteList.innerHTML = '<p>尚無筆記。</p>';
+            }
+        }
+
+        // 顯示筆記列表初始化
+        displayNotes();
+
+        // 開啟編輯筆記彈窗
+        window.openEditModal = function(index) {
+            const notes = JSON.parse(localStorage.getItem('notes'));
+            const note = notes[index];
+
+            // 設置表單的值
+            document.getElementById('editNoteTitle').value = note.title;
+            document.getElementById('editNoteContent').value = note.content;
+
+            // 顯示編輯彈窗
+            const editModal = document.getElementById('editNoteModal');
+            editModal.style.display = "block";
+
+            // 儲存編輯後的筆記
+            document.getElementById('saveEditedNoteBtn').onclick = function() {
+                const newTitle = document.getElementById('editNoteTitle').value;
+                const newContent = document.getElementById('editNoteContent').value;
+
+                if (newTitle && newContent) {
+                    notes[index] = {
+                        title: newTitle,
+                        content: newContent,
+                        date: new Date().toLocaleString()
+                    };
+
+                    localStorage.setItem('notes', JSON.stringify(notes));
+
+                    // 顯示更新後的筆記
+                    displayNotes();
+
+                    // 關閉彈窗
+                    editModal.style.display = "none";
+                } else {
+                    alert('請填寫筆記標題和內容');
+                }
+            };
+        };
+
+        // 刪除筆記
+        window.deleteNote = function(index) {
+            const notes = JSON.parse(localStorage.getItem('notes'));
+            notes.splice(index, 1);
+            localStorage.setItem('notes', JSON.stringify(notes));
+            displayNotes();
+        };
+
+        // 關閉編輯筆記彈窗
+        document.querySelectorAll('.close').forEach(function(element) {
+            element.onclick = function() {
+                const editModal = document.getElementById('editNoteModal');
+                editModal.style.display = "none";
+            };
+        });
+
+        // 登出
+        document.getElementById('logoutBtn').onclick = function() {
+            localStorage.removeItem('user');
+            window.location.href = '../index.html';
+        };
+    };
+</script>
+
+</body>
+</html>
